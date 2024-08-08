@@ -88,8 +88,8 @@
             debugOutput.scrollTop = debugOutput.scrollHeight;
         }
 
-        // Main app_resume function
-        function app_resume() {
+        // Main median_app_resumed function
+        function median_app_resumed() {
             const currentTime = getCurrentTimestamp();
             const lastResumeTime = getLastResumeTime();
             const elapsedTime = currentTime - lastResumeTime;
@@ -114,17 +114,10 @@
         // Initial setup
         log(`Debug page loaded. App resume threshold set to ${ELAPSED_TIME_THRESHOLD} seconds.`, 'info');
         
-        // Override the median.app_resumed function if it exists
-        if (typeof median !== 'undefined' && typeof median.app_resumed === 'function') {
-            const originalAppResumed = median.app_resumed;
-            median.app_resumed = function() {
-                app_resume();
-                if (originalAppResumed) originalAppResumed();
-            };
-            log('Successfully hooked into median.app_resumed function.', 'info');
-        } else {
-            log('median.app_resumed function not found. This page may not be running in a Median environment.', 'warning');
-        }
+        // Make sure median_app_resumed is globally accessible
+        window.median_app_resumed = median_app_resumed;
+
+        log('median_app_resumed function is now globally accessible.', 'info');
     </script>
 </body>
 </html>
