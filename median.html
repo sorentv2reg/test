@@ -9,6 +9,7 @@
         h1 { color: #333; }
         #debug-output { background-color: #f4f4f4; border: 1px solid #ddd; padding: 10px; margin-top: 20px; }
         .key-info { font-weight: bold; color: #0066cc; }
+        .highlight { background-color: yellow; padding: 2px 5px; }
         button { padding: 10px; margin: 5px; }
     </style>
 </head>
@@ -19,7 +20,8 @@
 
     <script>
     const DAYS_TO_EXPIRE_COOKIE = 365;
-    let appResumedCalled = false;
+    let appResumeCallCount = 0;
+    let lastAppResumeTime = null;
 
     function debugLog(message) {
         const debugOutput = document.getElementById('debug-output');
@@ -65,7 +67,9 @@
     }
 
     function median_app_resumed() {
-        appResumedCalled = true;
+        appResumeCallCount++;
+        lastAppResumeTime = new Date();
+        debugLog('<span class="highlight">median_app_resumed called</span>');
         if (median_is_active_expired()) {
             debugLog('<span class="key-info">Page would be reloaded due to expired median_active</span>');
             // Commented out to prevent actual reload
@@ -74,18 +78,24 @@
             debugLog('<span class="key-info">Page would NOT be reloaded (median_active not expired)</span>');
         }
         median_set_active();
+        refreshDebugInfo();
     }
 
     function refreshDebugInfo() {
         clearDebugOutput();
-        debugLog('<span class="key-info">1. Has median_app_resumed been called? ' + appResumedCalled + '</span>');
+        debugLog('<span class="key-info">1. App Resume Status:</span>');
+        debugLog('   • Has median_app_resumed been called? <span class="highlight">' + (appResumeCallCount > 0 ? 'YES' : 'NO') + '</span>');
+        debugLog('   • Number of times called: <span class="highlight">' + appResumeCallCount + '</span>');
+        if (lastAppResumeTime) {
+            debugLog('   • Last called at: <span class="highlight">' + lastAppResumeTime.toLocaleString() + '</span>');
+        }
         
+        debugLog('<span class="key-info">2. Page Reload Status:</span>');
         const lastActiveTimestamp = parseInt(median_get_cookie('medianactive') || '0', 10);
         const timeSinceLastActive = (new Date().getTime() - lastActiveTimestamp) / 1000;
-        debugLog('<span class="key-info">2. Will the page be reloaded due to median_active?</span>');
-        debugLog('   Time since last active: ' + timeSinceLastActive.toFixed(2) + ' seconds');
-        debugLog('   Is active expired (> 10 seconds): ' + median_is_active_expired());
-        debugLog('   ' + (median_is_active_expired() ? 'Page WOULD be reloaded if median_app_resumed is called' : 'Page would NOT be reloaded if median_app_resumed is called'));
+        debugLog('   • Time since last active: ' + timeSinceLastActive.toFixed(2) + ' seconds');
+        debugLog('   • Is active expired (> 10 seconds): ' + median_is_active_expired());
+        debugLog('   • ' + (median_is_active_expired() ? 'Page WOULD be reloaded if median_app_resumed is called now' : 'Page would NOT be reloaded if median_app_resumed is called now'));
     }
 
     // Initial setup
@@ -95,10 +105,8 @@
     if (typeof median !== 'undefined') {
         const originalAppResumed = median.app_resumed;
         median.app_resumed = function() {
-            debugLog('<span class="key-info">median.app_resumed called</span>');
             median_app_resumed();
             if (originalAppResumed) originalAppResumed();
-            refreshDebugInfo();
         };
     } else {
         debugLog('Median object not found. This page may not be running in a Median environment.');
