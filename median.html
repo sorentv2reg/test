@@ -3,38 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Comprehensive Median.io Debug Page</title>
+    <title>Focused Median.io Debug Page</title>
     <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
         h1 { color: #333; }
-        #debug-output { background-color: #f4f4f4; border: 1px solid #ddd; padding: 10px; margin-top: 20px; white-space: pre-wrap; }
+        #debug-output { background-color: #f4f4f4; border: 1px solid #ddd; padding: 10px; margin-top: 20px; }
+        .key-info { font-weight: bold; color: #0066cc; }
         button { padding: 10px; margin: 5px; }
     </style>
 </head>
 <body>
-    <h1>Comprehensive Median.io Debug Page</h1>
+    <h1>Focused Median.io Debug Page</h1>
     <button onclick="refreshDebugInfo()">Refresh Debug Info</button>
     <div id="debug-output"></div>
 
     <script>
-    // Constants
-    const MAIN_SITE_DOMAIN = 'tvsyd.dk';
-    const TAB_MAP = {
-        "/": 0,
-        "/seneste-nyt": 1,
-        "/storkereden": 2,
-        "/storkereden?camera=1": 2,
-        "/storkereden?camera=2": 2
-    };
-    const HIDE_TABS_ON_SCROLL = false;
-    const MAIN_SITE_URL = 'https://www.' + MAIN_SITE_DOMAIN;
-    const COOKIE_REDIRECT_URL = MAIN_SITE_URL + '/mobile-app-push-message-dialog-welcome';
     const DAYS_TO_EXPIRE_COOKIE = 365;
+    let appResumedCalled = false;
 
-    // Debug logging function
     function debugLog(message) {
         const debugOutput = document.getElementById('debug-output');
-        debugOutput.innerHTML += message + '\n';
+        debugOutput.innerHTML += message + '<br>';
         console.log(message);
     }
 
@@ -42,11 +31,14 @@
         document.getElementById('debug-output').innerHTML = '';
     }
 
-    // Cookie functions
-    function median_has_cookie(name) {
-        const result = document.cookie.split(';').some(item => item.trim().startsWith(name + '='));
-        debugLog(`Checking for cookie '${name}': ${result}`);
-        return result;
+    function median_get_cookie(name) {
+        const nameEQ = `${name}=`;
+        const ca = document.cookie.split(';');
+        for (let i = 0; i < ca.length; i++) {
+            let c = ca[i].trim();
+            if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length);
+        }
+        return null;
     }
 
     function median_set_cookie(name, value, days) {
@@ -57,171 +49,56 @@
             expires = "; expires=" + date.toUTCString();
         }
         document.cookie = `${name}=${value || ""}${expires}; path=/`;
-        debugLog(`Setting cookie: ${name}=${value}, expires in ${days} days`);
-    }
-
-    function median_get_cookie(name) {
-        const nameEQ = `${name}=`;
-        const ca = document.cookie.split(';');
-        for (let i = 0; i < ca.length; i++) {
-            let c = ca[i].trim();
-            if (c.indexOf(nameEQ) === 0) {
-                const value = c.substring(nameEQ.length);
-                debugLog(`Getting cookie '${name}': ${value}`);
-                return value;
-            }
-        }
-        debugLog(`Cookie '${name}' not found`);
-        return null;
     }
 
     function median_set_active() {
         const timestamp = new Date().getTime();
         median_set_cookie('medianactive', timestamp, DAYS_TO_EXPIRE_COOKIE);
-        debugLog(`Set active timestamp: ${timestamp}`);
     }
 
     function median_is_active_expired() {
         const timestamp = median_get_cookie('medianactive');
-        if (!timestamp) {
-            debugLog('No active timestamp found');
-            return false;
-        }
+        if (!timestamp) return true;
         const currentTime = new Date().getTime();
         const elapsedTime = (currentTime - parseInt(timestamp, 10)) / 1000;
-        const isExpired = elapsedTime > 10;
-        debugLog(`Time since last active: ${elapsedTime} seconds. Is expired: ${isExpired}`);
-        return isExpired;
-    }
-
-    function median_check_first_visit_and_redirect() {
-        if (!median_has_cookie('firstRun')) {
-            median_set_cookie('firstRun', new Date().getTime().toString(), DAYS_TO_EXPIRE_COOKIE);
-            debugLog(`First visit detected. Would redirect to: ${COOKIE_REDIRECT_URL}`);
-            // Commented out to prevent actual redirection
-            // window.location.href = COOKIE_REDIRECT_URL;
-        } else {
-            const first_run_value = median_get_cookie('firstRun');
-            median_set_cookie('firstRun', first_run_value, DAYS_TO_EXPIRE_COOKIE);
-            debugLog(`Not first visit. First run value: ${first_run_value}`);
-        }
-    }
-
-    function median_open_frontpage() {
-        var cacheBuster = new Date();
-        var formattedDate = cacheBuster.getFullYear() +
-            ("0" + (cacheBuster.getMonth() + 1)).slice(-2) +
-            ("0" + cacheBuster.getDate()).slice(-2) +
-            ("0" + cacheBuster.getHours()).slice(-2) +
-            ("0" + Math.round(cacheBuster.getMinutes() / 5) * 5).slice(-2);
-        
-        debugLog(`Would open frontpage: ${MAIN_SITE_URL}?cb=${formattedDate}`);
-        // Commented out to prevent actual page opening
-        // window.open(MAIN_SITE_URL + '?cb=' + formattedDate, '_self');
+        return elapsedTime > 10;
     }
 
     function median_app_resumed() {
-        debugLog('median_app_resumed called');
+        appResumedCalled = true;
         if (median_is_active_expired()) {
-            debugLog('Activity expired, would open frontpage');
-            median_open_frontpage();
+            debugLog('<span class="key-info">Page would be reloaded due to expired median_active</span>');
+            // Commented out to prevent actual reload
+            // window.location.reload();
+        } else {
+            debugLog('<span class="key-info">Page would NOT be reloaded (median_active not expired)</span>');
         }
         median_set_active();
     }
 
-    function median_onesignal_push_opened(data) {
-        debugLog('median_onesignal_push_opened called with data: ' + JSON.stringify(data));
-        if (data.hasOwnProperty('targetUrl')) {
-            if (data.targetUrl.trim() !== '') {
-                try {
-                    median_set_active();
-                } catch (e) {
-                    console.error(e);
-                }
-                debugLog(`Would open target URL: ${data.targetUrl}`);
-                // window.open(data.targetUrl, '_blank');
-                // window.scrollTo(0, 0);
-            } else {
-                debugLog('targetUrl is empty.');
-            }
-        } else {
-            debugLog('targetUrl does not exist in data.');
-        }
-    }
-
-    function median_library_ready() {
-        debugLog('median_library_ready called');
-        try {
-            median_set_active();
-        } catch (e) {
-            console.error(e);
-        }
-
-        const currentPath = window.location.pathname;
-        const currentTab = TAB_MAP[currentPath];
-
-        debugLog('Current path: ' + currentPath);
-        debugLog('Current tab: ' + currentTab);
-
-        if (typeof currentTab === 'number' && currentTab >= 0 && currentTab <= 4 && median.tabNavigation && typeof median.tabNavigation.selectTab === "function") {
-            try {
-                debugLog(`Would select tab: ${currentTab}`);
-                // median.tabNavigation.selectTab(currentTab);
-            } catch (e) {
-                console.error(e);
-            }
-        } else {
-            try {
-                debugLog('Would deselect tab');
-                // median.tabNavigation.deselect();
-            } catch (e) {
-                console.error(e);
-            }
-        }
-    }
-
     function refreshDebugInfo() {
         clearDebugOutput();
-        debugLog('Debug info refreshed at: ' + new Date().toLocaleString());
-        debugLog('Current path: ' + window.location.pathname);
-        debugLog('Current tab (based on TAB_MAP): ' + TAB_MAP[window.location.pathname]);
-        debugLog('All cookies: ' + document.cookie);
-        debugLog('Has "firstRun" cookie: ' + median_has_cookie('firstRun'));
-        debugLog('First run value: ' + median_get_cookie('firstRun'));
-        debugLog('Has "medianactive" cookie: ' + median_has_cookie('medianactive'));
-        debugLog('Median active value: ' + median_get_cookie('medianactive'));
-        debugLog('Is active expired: ' + median_is_active_expired());
+        debugLog('<span class="key-info">1. Has median_app_resumed been called? ' + appResumedCalled + '</span>');
+        
         const lastActiveTimestamp = parseInt(median_get_cookie('medianactive') || '0', 10);
         const timeSinceLastActive = (new Date().getTime() - lastActiveTimestamp) / 1000;
-        debugLog('Time since last active: ' + timeSinceLastActive + ' seconds');
+        debugLog('<span class="key-info">2. Will the page be reloaded due to median_active?</span>');
+        debugLog('   Time since last active: ' + timeSinceLastActive.toFixed(2) + ' seconds');
+        debugLog('   Is active expired (> 10 seconds): ' + median_is_active_expired());
+        debugLog('   ' + (median_is_active_expired() ? 'Page WOULD be reloaded if median_app_resumed is called' : 'Page would NOT be reloaded if median_app_resumed is called'));
     }
 
     // Initial setup
-    debugLog('Page loaded');
-    median_check_first_visit_and_redirect();
     refreshDebugInfo();
 
     // Override median functions to add logging
     if (typeof median !== 'undefined') {
         const originalAppResumed = median.app_resumed;
         median.app_resumed = function() {
-            debugLog('median.app_resumed called');
+            debugLog('<span class="key-info">median.app_resumed called</span>');
             median_app_resumed();
             if (originalAppResumed) originalAppResumed();
-        };
-
-        const originalLibraryReady = median.library_ready;
-        median.library_ready = function() {
-            debugLog('median.library_ready called');
-            median_library_ready();
-            if (originalLibraryReady) originalLibraryReady();
-        };
-
-        const originalOneSugnalPushOpened = median.onesignal_push_opened;
-        median.onesignal_push_opened = function(data) {
-            debugLog('median.onesignal_push_opened called');
-            median_onesignal_push_opened(data);
-            if (originalOneSugnalPushOpened) originalOneSugnalPushOpened(data);
+            refreshDebugInfo();
         };
     } else {
         debugLog('Median object not found. This page may not be running in a Median environment.');
