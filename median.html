@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Median.io Debug Page</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
+        h1 { color: #333; }
+        #debug-output { background-color: #f4f4f4; border: 1px solid #ddd; padding: 10px; margin-top: 20px; }
+        button { padding: 10px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Median.io Debug Page</h1>
+    <button onclick="refreshDebugInfo()">Refresh Debug Info</button>
+    <div id="debug-output"></div>
+
+    <script>
+    const MAIN_SITE_DOMAIN = 'tvsyd.dk';
+    const TAB_MAP = {
+        "/": 0,
+        "/seneste-nyt": 1,
+        "/storkereden": 2,
+        "/storkereden?camera=1": 2,
+        "/storkereden?camera=2": 2
+    };
+    const HIDE_TABS_ON_SCROLL = false;
+    const MAIN_SITE_URL = 'https://www.' + MAIN_SITE_DOMAIN;
+    const COOKIE_REDIRECT_URL = MAIN_SITE_URL + '/mobile-app-push-message-dialog-welcome';
+    const DAYS_TO_EXPIRE_COOKIE = 365;
+
+    function debugLog(message) {
+        const debugOutput = document.getElementById('debug-output');
+        debugOutput.innerHTML += message + '<br>';
+        console.log(message);
+    }
+
+    function clearDebugOutput() {
+        document.getElementById('debug-output').innerHTML = '';
+    }
+
+    function median_has_cookie(name) {
+        return document.cookie.split(';').some(item => item.trim().startsWith(name + '='));
+    }
+
+    function median_get_cookie(name) {
+        const nameEQ = `${name}=`;
+        const ca = document.cookie.split(';');
+        for (let i = 0; i < ca.length; i++) {
+            let c = ca[i].trim();
+            if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length);
+        }
+        return null;
+    }
+
+    function median_is_active_expired() {
+        const timestamp = median_get_cookie('medianactive');
+        if (!timestamp) return false;
+        const currentTime = new Date().getTime();
+        const elapsedTime = (currentTime - parseInt(timestamp, 10)) / 1000;
+        return elapsedTime > 10;
+    }
+
+    function refreshDebugInfo() {
+        clearDebugOutput();
+        debugLog('Debug info refreshed at: ' + new Date().toLocaleString());
+        debugLog('Current path: ' + window.location.pathname);
+        debugLog('Current tab (based on TAB_MAP): ' + TAB_MAP[window.location.pathname]);
+        debugLog('All cookies: ' + document.cookie);
+        debugLog('Has "firstRun" cookie: ' + median_has_cookie('firstRun'));
+        debugLog('First run value: ' + median_get_cookie('firstRun'));
+        debugLog('Has "medianactive" cookie: ' + median_has_cookie('medianactive'));
+        debugLog('Median active value: ' + median_get_cookie('medianactive'));
+        debugLog('Is active expired: ' + median_is_active_expired());
+        debugLog('Time since last active: ' + ((new Date().getTime() - parseInt(median_get_cookie('medianactive') || '0', 10)) / 1000) + ' seconds');
+    }
+
+    // Initial debug information
+    refreshDebugInfo();
+
+    // Override median functions to add logging
+    if (typeof median !== 'undefined') {
+        const originalAppResumed = median.app_resumed;
+        median.app_resumed = function() {
+            debugLog('median.app_resumed called');
+            if (originalAppResumed) originalAppResumed();
+        };
+
+        const originalLibraryReady = median.library_ready;
+        median.library_ready = function() {
+            debugLog('median.library_ready called');
+            if (originalLibraryReady) originalLibraryReady();
+        };
+    } else {
+        debugLog('Median object not found. This page may not be running in a Median environment.');
+    }
+    </script>
+</body>
+</html>
