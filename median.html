@@ -3,120 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Improved Median.io Debug Page</title>
+    <title>Median App Resume Debug Page</title>
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
-        h1 { color: #333; }
-        #debug-output { background-color: #f4f4f4; border: 1px solid #ddd; padding: 10px; margin-top: 20px; }
-        .key-info { font-weight: bold; color: #0066cc; }
-        .highlight { background-color: yellow; padding: 2px 5px; }
-        button { padding: 10px; margin: 5px; }
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+        }
+        #debug-output {
+            background-color: #f4f4f4;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            height: 300px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin-bottom: 10px;
+        }
+        .timestamp {
+            color: #888;
+        }
+        .info {
+            color: #0066cc;
+        }
+        .warning {
+            color: #cc6600;
+        }
+        .button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
-    <h1>Improved Median.io Debug Page</h1>
-    <button onclick="refreshDebugInfo()">Refresh Debug Info</button>
+    <h1>Median App Resume Debug Page</h1>
+    <button id="clearLogsButton" class="button">Clear Logs</button>
     <div id="debug-output"></div>
 
     <script>
-    const DAYS_TO_EXPIRE_COOKIE = 365;
-    let appResumeCallCount = 0;
-    let lastAppResumeTime = null;
+        // Configuration
+        const ELAPSED_TIME_THRESHOLD = 30; // Time in seconds
+        const COOKIE_NAME = 'lastResumeTime';
 
-    function debugLog(message) {
-        const debugOutput = document.getElementById('debug-output');
-        debugOutput.innerHTML += message + '<br>';
-        console.log(message);
-    }
-
-    function clearDebugOutput() {
-        document.getElementById('debug-output').innerHTML = '';
-    }
-
-    function median_get_cookie(name) {
-        const nameEQ = `${name}=`;
-        const ca = document.cookie.split(';');
-        for (let i = 0; i < ca.length; i++) {
-            let c = ca[i].trim();
-            if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length);
+        // Function to get the current timestamp
+        function getCurrentTimestamp() {
+            return Math.floor(Date.now() / 1000);
         }
-        return null;
-    }
 
-    function median_set_cookie(name, value, days) {
-        let expires = "";
-        if (days) {
-            const date = new Date();
-            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-            expires = "; expires=" + date.toUTCString();
+        // Function to get the last resume time from cookie
+        function getLastResumeTime() {
+            const cookieValue = document.cookie.replace(new RegExp(`(?:(?:^|.*;\\s*)${COOKIE_NAME}\\s*\\=\\s*([^;]*).*$)|^.*$`), "$1");
+            return cookieValue ? parseInt(cookieValue, 10) : 0;
         }
-        document.cookie = `${name}=${value || ""}${expires}; path=/`;
-    }
 
-    function median_set_active() {
-        const timestamp = new Date().getTime();
-        median_set_cookie('medianactive', timestamp, DAYS_TO_EXPIRE_COOKIE);
-        debugLog('Set medianactive cookie to: ' + timestamp);
-    }
-
-    function median_get_active_timestamp() {
-        return parseInt(median_get_cookie('medianactive') || '0', 10);
-    }
-
-    function median_is_active_expired() {
-        const timestamp = median_get_active_timestamp();
-        if (!timestamp) return true;
-        const currentTime = new Date().getTime();
-        const elapsedTime = (currentTime - timestamp) / 1000;
-        return elapsedTime > 10;
-    }
-
-    function median_app_resumed() {
-        appResumeCallCount++;
-        lastAppResumeTime = new Date();
-        debugLog('<span class="highlight">median_app_resumed called</span>');
-        if (median_is_active_expired()) {
-            debugLog('<span class="key-info">Page would be reloaded due to expired median_active</span>');
-            // Commented out to prevent actual reload
-            // window.location.reload();
-        } else {
-            debugLog('<span class="key-info">Page would NOT be reloaded (median_active not expired)</span>');
+        // Function to set the last resume time in cookie
+        function setLastResumeTime(timestamp) {
+            document.cookie = `${COOKIE_NAME}=${timestamp};path=/;max-age=31536000`; // max-age is set to 1 year
         }
-        median_set_active();
-        refreshDebugInfo();
-    }
 
-    function refreshDebugInfo() {
-        clearDebugOutput();
-        debugLog('<span class="key-info">1. App Resume Status:</span>');
-        debugLog('   • Has median_app_resumed been called? <span class="highlight">' + (appResumeCallCount > 0 ? 'YES' : 'NO') + '</span>');
-        debugLog('   • Number of times called: <span class="highlight">' + appResumeCallCount + '</span>');
-        if (lastAppResumeTime) {
-            debugLog('   • Last called at: <span class="highlight">' + lastAppResumeTime.toLocaleString() + '</span>');
+        // Function to log messages to the debug output
+        function log(message, type = 'info') {
+            const debugOutput = document.getElementById('debug-output');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `<span class="timestamp">[${timestamp}]</span> <span class="${type}">${message}</span>`;
+            debugOutput.appendChild(logEntry);
+            debugOutput.scrollTop = debugOutput.scrollHeight;
         }
+
+        // Main app_resume function
+        function app_resume() {
+            const currentTime = getCurrentTimestamp();
+            const lastResumeTime = getLastResumeTime();
+            const elapsedTime = currentTime - lastResumeTime;
+
+            log(`App resumed. Time elapsed since last resume: ${elapsedTime} seconds`);
+
+            if (elapsedTime >= ELAPSED_TIME_THRESHOLD) {
+                log('Threshold exceeded. Refreshing page...', 'warning');
+                setLastResumeTime(currentTime);
+                location.reload();
+            } else {
+                log('Threshold not exceeded. No action taken.');
+                setLastResumeTime(currentTime);
+            }
+        }
+
+        // Event listener for clear logs button
+        document.getElementById('clearLogsButton').addEventListener('click', () => {
+            document.getElementById('debug-output').innerHTML = '';
+        });
+
+        // Initial setup
+        log(`Debug page loaded. App resume threshold set to ${ELAPSED_TIME_THRESHOLD} seconds.`, 'info');
         
-        debugLog('<span class="key-info">2. Median Active Status:</span>');
-        const lastActiveTimestamp = median_get_active_timestamp();
-        const timeSinceLastActive = (new Date().getTime() - lastActiveTimestamp) / 1000;
-        debugLog('   • Last active timestamp: ' + (lastActiveTimestamp ? new Date(lastActiveTimestamp).toLocaleString() : 'Never'));
-        debugLog('   • Time since last active: <span class="highlight">' + timeSinceLastActive.toFixed(2) + ' seconds</span>');
-        debugLog('   • Is active expired (> 10 seconds): ' + median_is_active_expired());
-        debugLog('   • ' + (median_is_active_expired() ? 'Page WOULD be reloaded if median_app_resumed is called now' : 'Page would NOT be reloaded if median_app_resumed is called now'));
-    }
-
-    // Initial setup
-    refreshDebugInfo();
-
-    // Override median functions to add logging
-    if (typeof median !== 'undefined') {
-        const originalAppResumed = median.app_resumed;
-        median.app_resumed = function() {
-            median_app_resumed();
-            if (originalAppResumed) originalAppResumed();
-        };
-    } else {
-        debugLog('Median object not found. This page may not be running in a Median environment.');
-    }
+        // Override the median.app_resumed function if it exists
+        if (typeof median !== 'undefined' && typeof median.app_resumed === 'function') {
+            const originalAppResumed = median.app_resumed;
+            median.app_resumed = function() {
+                app_resume();
+                if (originalAppResumed) originalAppResumed();
+            };
+            log('Successfully hooked into median.app_resumed function.', 'info');
+        } else {
+            log('median.app_resumed function not found. This page may not be running in a Median environment.', 'warning');
+        }
     </script>
 </body>
 </html>
