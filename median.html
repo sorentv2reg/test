@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Focused Median.io Debug Page</title>
+    <title>Improved Median.io Debug Page</title>
     <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
         h1 { color: #333; }
@@ -14,7 +14,7 @@
     </style>
 </head>
 <body>
-    <h1>Focused Median.io Debug Page</h1>
+    <h1>Improved Median.io Debug Page</h1>
     <button onclick="refreshDebugInfo()">Refresh Debug Info</button>
     <div id="debug-output"></div>
 
@@ -56,13 +56,18 @@
     function median_set_active() {
         const timestamp = new Date().getTime();
         median_set_cookie('medianactive', timestamp, DAYS_TO_EXPIRE_COOKIE);
+        debugLog('Set medianactive cookie to: ' + timestamp);
+    }
+
+    function median_get_active_timestamp() {
+        return parseInt(median_get_cookie('medianactive') || '0', 10);
     }
 
     function median_is_active_expired() {
-        const timestamp = median_get_cookie('medianactive');
+        const timestamp = median_get_active_timestamp();
         if (!timestamp) return true;
         const currentTime = new Date().getTime();
-        const elapsedTime = (currentTime - parseInt(timestamp, 10)) / 1000;
+        const elapsedTime = (currentTime - timestamp) / 1000;
         return elapsedTime > 10;
     }
 
@@ -90,10 +95,11 @@
             debugLog('   • Last called at: <span class="highlight">' + lastAppResumeTime.toLocaleString() + '</span>');
         }
         
-        debugLog('<span class="key-info">2. Page Reload Status:</span>');
-        const lastActiveTimestamp = parseInt(median_get_cookie('medianactive') || '0', 10);
+        debugLog('<span class="key-info">2. Median Active Status:</span>');
+        const lastActiveTimestamp = median_get_active_timestamp();
         const timeSinceLastActive = (new Date().getTime() - lastActiveTimestamp) / 1000;
-        debugLog('   • Time since last active: ' + timeSinceLastActive.toFixed(2) + ' seconds');
+        debugLog('   • Last active timestamp: ' + (lastActiveTimestamp ? new Date(lastActiveTimestamp).toLocaleString() : 'Never'));
+        debugLog('   • Time since last active: <span class="highlight">' + timeSinceLastActive.toFixed(2) + ' seconds</span>');
         debugLog('   • Is active expired (> 10 seconds): ' + median_is_active_expired());
         debugLog('   • ' + (median_is_active_expired() ? 'Page WOULD be reloaded if median_app_resumed is called now' : 'Page would NOT be reloaded if median_app_resumed is called now'));
     }
